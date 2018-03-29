@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+    <!-- Main CSS -->
+    <link rel="stylesheet" type="text/css" href="main.css">
+
+    <title>Meme Registry</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col-4">
+
+          <h1>Meme Registry</h1>
+
+          <!-- Insert notifications here -->
+          <div id="notification" class="alert alert-secondary" role="alert">
+            Welcome to Meme registry, register your meme to proof that you are the creator
+          </div>
+
+
+          <!-- Display era of meme and meme info -->
+          <figure class="figure">
+            <!-- Display meme here through img url -->
+            <img id="meme" src="" class="figure-img img-fluid rounded">
+            <figcaption class="figure-caption">
+              <!-- Display name of meme creator here -->
+              <h5 id="MemeCreatorName"> </h5>
+              <!-- Display time of meme registration here -->
+              <p id="timeproof"></p>
+            </figcaption>
+          </figure>
+
+
+          <!-- Loader gif to indicate that something is happening when we make call or insert to blockchain -->
+          <br>
+          <img id="loader" src="https://media.giphy.com/media/QLxKXLRTwSDY7NuVfG/giphy.gif">
+
+          <!-- Input fields to register meme  -->
+
+          <!-- Input of meme image url to register-->
+          <div class="form-group">
+            <label for="url">Url</label>
+            <input type="text" class="form-control" id="url" placeholder="Enter the url of a meme to register">
+          </div>
+
+          <!-- Input of user name to register-->
+          <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" class="form-control" id="name" placeholder="Enter your name">
+          </div>
+
+          <button id="RegisterButton" class="btn btn-primary">Register meme</button>
+          <br><br>
+
+          <!-- Input field to get a meme from blockchain  -->
+          <div class="form-group">
+            <label for="geturl">Get url</label>
+            <input type="text" class="form-control" id="geturl" placeholder="Enter url of meme you want to check">
+          </div>
+
+          <button id="GetButton" class="btn btn-primary">Get meme by url</button>
+
+
+        </div>
+      </div>
+    </div>
+
+    <!-- is this the right place for jquery?  -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+
+    <script>
+      //check out web3.js doc here: https://github.com/ethereum/wiki/wiki/JavaScript-API
+       
+      //create a web3 instance,by setting a provider. To make sure you don't overwrite the already set provider when in mist, check first if the web3 is available: 
+      if (typeof web3 !== 'undefined') {
+          web3 = new Web3(web3.currentProvider);
+      } else {
+          // set the provider you want from Web3.providers
+          web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+      }
+
+      web3.eth.defaultAccount = web3.eth.accounts[0];
+
+
+      //Interact with smart contracts through level ABI over RPC 
+      var Contract = web3.eth.contract([ { "constant": true, "inputs": [ { "name": "_url", "type": "string" } ], "name": "getMemecert", "outputs": [ { "name": "", "type": "address" }, { "name": "", "type": "string" }, { "name": "", "type": "uint256" } ], "payable": false, "stateMutability": "view", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "name": "creator", "type": "address" }, { "indexed": false, "name": "name", "type": "string" }, { "indexed": false, "name": "timestamp", "type": "uint256" }, { "indexed": false, "name": "url", "type": "string" } ], "name": "memecertInfo", "type": "event" }, { "constant": false, "inputs": [ { "name": "_url", "type": "string" }, { "name": "_creator", "type": "address" }, { "name": "_name", "type": "string" } ], "name": "setMemecert", "outputs": [], "payable": false, "stateMutability": "nonpayable", "type": "function" } ]);
+
+      //contract address
+      var ContractAtAddress = Contract.at('0x54b913972fa49c88edaa57f00e6073186b4172a0');
+
+        //watch for changes on event
+        var Event = ContractAtAddress.memecertInfo({}, 'latest');
+        Event.watch(function(error, result) {
+
+        //If you get a result hide loader, display result and notification   
+        if (result) {
+            $("#loader").hide();
+            $("#MemeCreatorName").html('by '+(result.args.name));
+            $("#timeproof").html('registered on '+ new Date((result.args.timestamp['c'][0])*1000));
+            $("#meme").attr("src", (result.args.url));
+            $("#notification").addClass("alert alert-success");
+            $("#notification").html('Your meme is now registered');
+
+        } else {
+            $("#loader").hide();
+        }
+        });
+
+        //This part is for the registration on the blockchain
+        $("#RegisterButton").click(function() {
+          // display loading gif
+          $("#loader").show();
+
+          //First check if the url meme is already registered on the blockchain with a call, to avoid an error on blockchain and save time
+           ContractAtAddress.getMemecert($("#url").val(), (err, res) => {
+               if (res[1]) {
+                $("#notification").addClass("alert alert-danger");
+                $("#notification").html('Meme already registered');
+                $("#loader").hide();
+               
+               } else {
+
+                //If there is no result on the blockchain execute script to save it to the blockchain
+                ContractAtAddress.setMemecert($("#url").val(), web3.eth.defaultAccount, $("#name").val(), (err, res) => {
+                   if (err) {
+                       $("#loader").hide();
+                   }
+                });
+               }
+           });
+
+        });
+
+      //This part is for the call to the blockchain
+       $("#GetButton").click(function() {
+            $("#loader").show();
+           ContractAtAddress.getMemecert($("#geturl").val(), (err, res) => {
+               if (res[1]) {
+                   $("#MemeCreatorName").html('by '+res[1]);
+                   $("#timeproof").html('registered on '+ new Date((res[2]['c'][0])*1000));
+                   $("#loader").hide();
+                   $("#meme").attr("src",$("#geturl").val());
+                   $("#notification").addClass("alert alert-success");
+                   $("#notification").html('Meme was registered');
+               } else {
+                   $("#notification").html('Meme not yet registered');
+                   $("#loader").hide();
+               }
+           });
+       });
+
+
+    </script>
+
+
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+  </body>
+</html>
