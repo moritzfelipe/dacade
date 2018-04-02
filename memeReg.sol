@@ -9,7 +9,6 @@ contract memecertification {
         address creator;
         string name;
         uint256 timestamp;
-        bool used;
     }
     
     mapping (string => memecert) memecerts;
@@ -26,10 +25,17 @@ contract memecertification {
     //With setMemecert we register a new meme. We use require to ensure that the 
     //url is not already registered, then we save the struct and emit the event
     function setMemecert(string _url, address _creator, string _name) public {
-        require(!memecerts[_url].used);
-        memecerts[_url] = memecert(_creator, _name, now, true);
+        
+        // sicherstellen, dass diese parameter in der transaktion nicht vergessen wurden
+        require (bytes(_url).length != 0);
+        require (_creator != 0x0);
+        require (bytes(_name).length != 0);
+        
+        require(memecerts[_url].creator == 0x0); // Anstelle des "used" fields im memecert struct reicht es auch, einfach zu checken, ob diese URL bereits einen creator hat, spart gas :)
+        memecerts[_url] = memecert(_creator, _name, now);
         emit memecertInfo(_creator, _name, now, _url);
     }
+    
     
     //This is the getter for the memes
     function getMemecert(string _url) view public returns (address, string, uint256) {
